@@ -67,8 +67,9 @@ else
     done
 fi
 
-# Deploy via Terraform
+# Deploy via Terraform after Lambda packages are uploaded
 echo "🚀 Applying Terraform changes..."
 cd terraform
 terraform init
 terraform apply -auto-approve
+
