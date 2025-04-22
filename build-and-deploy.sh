@@ -78,11 +78,16 @@
 # # Applying Terraform changes
 # echo "🚀 Applying Terraform changes..."
 
-# # Ensure Terraform is initialized
-# terraform init
+# # Navigate to the Terraform directory (relative to this script)
+# SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# cd "$SCRIPT_DIR/terraform"
 
-# # Apply Terraform changes
+# # Initialize and apply Terraform
+# terraform init
 # terraform apply -auto-approve
+
+# # Optional: Go back to original script directory if needed
+# cd "$SCRIPT_DIR"
 
 
 
@@ -94,86 +99,82 @@ BUCKET="bg-kar-terraform-state"
 S3_PREFIX="lambda-packages"
 LAMBDA_FOLDER="lambda-functions"
 
-# Function to check if the Lambda package exists in S3
-check_lambda_package_in_s3() {
+# Function to get the S3 ETag of a package
+get_s3_etag() {
   local lambda_name=$1
-  echo "Checking if $lambda_name package exists in S3..."
+  aws s3api head-object --bucket "$BUCKET" --key "$S3_PREFIX/$lambda_name/package.zip" \
+    --query ETag --output text 2>/dev/null | tr -d '"'
+}
 
-  # Check if the Lambda package already exists in S3
-  aws s3 ls s3://$BUCKET/$S3_PREFIX/$lambda_name/package.zip > /dev/null
-  if [ $? -ne 0 ]; then
-    echo "$lambda_name package not found in S3. Building and uploading..."
-    build_and_upload_lambda $lambda_name
+# Function to calculate local package MD5
+get_local_md5() {
+  local file_path=$1
+  # On Linux/macOS: use md5sum or md5
+  if command -v md5sum &> /dev/null; then
+    md5sum "$file_path" | awk '{ print $1 }'
   else
-    echo "$lambda_name package found in S3. Skipping build & upload."
+    md5 -q "$file_path"
   fi
 }
 
 # Function to build and upload Lambda package
 build_and_upload_lambda() {
-  local lambda_folder=$1
-  echo "Building Lambda package for $lambda_folder..."
+  local lambda_name=$1
+  local folder_path="$LAMBDA_FOLDER/$lambda_name"
+  local package_path="$folder_path/package.zip"
+
+  echo "🔧 Building Lambda package for $lambda_name..."
 
   # Check if the folder exists
-  if [ ! -d "$LAMBDA_FOLDER/$lambda_folder" ]; then
-    echo "Error: $LAMBDA_FOLDER/$lambda_folder directory does not exist!"
+  if [ ! -d "$folder_path" ]; then
+    echo "❌ Error: $folder_path does not exist!"
     exit 1
   fi
 
-  cd "$LAMBDA_FOLDER/$lambda_folder"
+  cd "$folder_path"
 
-  # Check if build.sh exists
   if [ ! -f "build.sh" ]; then
-    echo "Error: build.sh script not found in $lambda_folder"
+    echo "❌ Error: build.sh not found in $lambda_name"
     exit 1
   fi
 
-  # Run build script to create package
-  echo "Running build.sh script for $lambda_folder..."
   ./build.sh
 
-  # Debug: List files in the directory after build
-  echo "Listing files in $lambda_folder directory after build:"
-  ls -la
-
-  # Ensure the package.zip file is present
-  PACKAGE_PATH="$LAMBDA_FOLDER/$lambda_folder/package.zip"
-  echo "Looking for $PACKAGE_PATH..."
-
-  if [ ! -f "$PACKAGE_PATH" ]; then
-    echo "Error: $PACKAGE_PATH does not exist after build!"
+  if [ ! -f "package.zip" ]; then
+    echo "❌ Error: package.zip not created in $folder_path!"
     exit 1
   fi
 
-  # Upload the built package to S3
-  echo "Uploading $PACKAGE_PATH to S3..."
-  aws s3 cp "$PACKAGE_PATH" s3://$BUCKET/$S3_PREFIX/$lambda_folder/package.zip
+  echo "📦 Checking if S3 package needs updating..."
 
-  # Go back to the root directory
+  local local_md5
+  local_md5=$(get_local_md5 "package.zip")
+
+  local s3_etag
+  s3_etag=$(get_s3_etag "$lambda_name")
+
+  if [ "$local_md5" == "$s3_etag" ]; then
+    echo "✅ No changes in $lambda_name package. Skipping upload."
+  else
+    echo "⬆️ Changes detected. Uploading $lambda_name package to S3..."
+    aws s3 cp "package.zip" s3://$BUCKET/$S3_PREFIX/$lambda_name/package.zip
+  fi
+
   cd ../../
 }
 
-# Main script execution
+# Main logic
+for lambda in lambda1 lambda2 lambda3; do
+  build_and_upload_lambda "$lambda"
+done
 
-# Check and upload Lambda1 package
-check_lambda_package_in_s3 "lambda1"
-
-# Check and upload Lambda2 package
-check_lambda_package_in_s3 "lambda2"
-
-# Check and upload Lambda3 package
-check_lambda_package_in_s3 "lambda3"
-
-# Applying Terraform changes
+# Terraform apply
 echo "🚀 Applying Terraform changes..."
 
-# Navigate to the Terraform directory (relative to this script)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR/terraform"
 
-# Initialize and apply Terraform
 terraform init
 terraform apply -auto-approve
 
-# Optional: Go back to original script directory if needed
 cd "$SCRIPT_DIR"
