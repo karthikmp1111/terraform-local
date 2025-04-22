@@ -89,6 +89,8 @@ LAMBDA_FOLDER="lambda-functions"
 check_lambda_package_in_s3() {
   local lambda_name=$1
   echo "Checking if $lambda_name package exists in S3..."
+
+  # Check if the Lambda package already exists in S3
   aws s3 ls s3://$BUCKET/$S3_PREFIX/$lambda_name/package.zip > /dev/null
   if [ $? -ne 0 ]; then
     echo "$lambda_name package not found in S3. Building and uploading..."
@@ -110,12 +112,15 @@ build_and_upload_lambda() {
   fi
 
   cd "$LAMBDA_FOLDER/$lambda_folder"
+
+  # Check if build.sh exists
   if [ ! -f "build.sh" ]; then
     echo "Error: build.sh script not found in $lambda_folder"
     exit 1
   fi
 
   # Run build script to create package
+  echo "Running build.sh script for $lambda_folder..."
   ./build.sh
 
   # Debug: List files in the directory after build
@@ -134,6 +139,8 @@ build_and_upload_lambda() {
   # Upload the built package to S3
   echo "Uploading $PACKAGE_PATH to S3..."
   aws s3 cp "$PACKAGE_PATH" s3://$BUCKET/$S3_PREFIX/$lambda_folder/package.zip
+
+  # Go back to the root directory
   cd ../../
 }
 
@@ -156,3 +163,4 @@ terraform init
 
 # Apply Terraform changes
 terraform apply -auto-approve
+
