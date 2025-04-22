@@ -77,6 +77,7 @@
 # terraform plan
 # terraform apply -auto-approve
 
+
 #!/bin/bash
 
 # Define the S3 bucket and prefix
@@ -121,15 +122,16 @@ build_and_upload_lambda() {
   echo "Listing files in $lambda_folder directory after build:"
   ls -la
 
-  # Check if the package was created
-  if [ ! -f "$lambda_folder/package.zip" ]; then
-    echo "Error: $lambda_folder/package.zip does not exist after build!"
+  # Ensure the package.zip file is present
+  PACKAGE_PATH="$LAMBDA_FOLDER/$lambda_folder/package.zip"
+  if [ ! -f "$PACKAGE_PATH" ]; then
+    echo "Error: $PACKAGE_PATH does not exist after build!"
     exit 1
   fi
 
   # Upload the built package to S3
-  echo "Uploading $lambda_folder/package.zip to S3..."
-  aws s3 cp "$lambda_folder/package.zip" s3://$BUCKET/$S3_PREFIX/$lambda_folder/package.zip
+  echo "Uploading $PACKAGE_PATH to S3..."
+  aws s3 cp "$PACKAGE_PATH" s3://$BUCKET/$S3_PREFIX/$lambda_folder/package.zip
   cd ../../
 }
 
@@ -152,4 +154,3 @@ terraform init
 
 # Apply Terraform changes
 terraform apply -auto-approve
-
