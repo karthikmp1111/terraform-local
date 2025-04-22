@@ -124,6 +124,8 @@ build_and_upload_lambda() {
 
   # Ensure the package.zip file is present
   PACKAGE_PATH="$LAMBDA_FOLDER/$lambda_folder/package.zip"
+  echo "Looking for $PACKAGE_PATH..."
+
   if [ ! -f "$PACKAGE_PATH" ]; then
     echo "Error: $PACKAGE_PATH does not exist after build!"
     exit 1
