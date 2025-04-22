@@ -74,12 +74,21 @@
 # terraform apply -auto-approve
 
 
+
+
+
 #!/bin/bash
 
-# S3 bucket and object paths
+# Define the path to the Lambda functions folder
+LAMBDA_FOLDER="lambda-functions"
+
+# Define Lambda function names
+LAMBDA_FOLDERS=("lambda1" "lambda2" "lambda3")
 BUCKET="bg-kar-terraform-state"
 S3_PREFIX="lambda-packages"
-LAMBDA_FOLDERS=("lambda1" "lambda2" "lambda3")
+
+# Define the Terraform directory
+TERRAFORM_DIR="terraform"
 
 # Function to check if the Lambda package exists in S3
 check_s3_object() {
@@ -92,14 +101,31 @@ build_and_upload_lambda() {
   local lambda_folder=$1
   echo "Building Lambda package for $lambda_folder..."
 
-  # Navigate to the Lambda folder and run build.sh to create the package
-  cd $lambda_folder
+  # Check if the folder exists
+  if [ ! -d "$LAMBDA_FOLDER/$lambda_folder" ]; then
+    echo "Error: $LAMBDA_FOLDER/$lambda_folder directory does not exist!"
+    exit 1
+  fi
+
+  cd "$LAMBDA_FOLDER/$lambda_folder"
+  if [ ! -f "build.sh" ]; then
+    echo "Error: build.sh script not found in $lambda_folder"
+    exit 1
+  fi
+
+  # Run build script to create package
   ./build.sh
+
+  # Check if the package was created
+  if [ ! -f "$lambda_folder/package.zip" ]; then
+    echo "Error: $lambda_folder/package.zip does not exist after build!"
+    exit 1
+  fi
 
   # Upload the built package to S3
   echo "Uploading $lambda_folder/package.zip to S3..."
-  aws s3 cp $lambda_folder/package.zip s3://$BUCKET/$S3_PREFIX/$lambda_folder/package.zip
-  cd ..
+  aws s3 cp "$lambda_folder/package.zip" s3://$BUCKET/$S3_PREFIX/$lambda_folder/package.zip
+  cd ../../
 }
 
 # Check each Lambda folder
@@ -115,10 +141,19 @@ for lambda_folder in "${LAMBDA_FOLDERS[@]}"; do
   fi
 done
 
-# After checking and uploading Lambda packages, apply Terraform changes
+# Check if Terraform configuration files are present in the terraform directory
+if [ ! -f "$TERRAFORM_DIR/main.tf" ]; then
+  echo "Error: Terraform configuration file (main.tf) not found in $TERRAFORM_DIR!"
+  exit 1
+fi
+
+# Apply Terraform changes
 echo "🚀 Applying Terraform changes..."
 
+# Navigate to the terraform directory and apply changes
+cd $TERRAFORM_DIR
 terraform init
 terraform plan
 terraform apply -auto-approve
+
 
