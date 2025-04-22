@@ -5,8 +5,13 @@ LAMBDA_DIR="lambda-functions"
 S3_BUCKET="bg-kar-terraform-state"
 ZIP_PATH="lambda-packages"
 
-# Get list of changed Lambda directories using git diff (compare with last commit)
-CHANGED_LAMBDAS=$(git diff --name-only HEAD~1 HEAD | grep "^$LAMBDA_DIR/" | awk -F/ '{print $2}' | sort -u)
+# Determine if HEAD~1 exists (i.e., there is more than one commit)
+if git rev-parse HEAD~1 >/dev/null 2>&1; then
+    CHANGED_LAMBDAS=$(git diff --name-only HEAD~1 HEAD | grep "^$LAMBDA_DIR/" | awk -F/ '{print $2}' | sort -u)
+else
+    echo "🟡 Only one commit found. Using HEAD diff instead."
+    CHANGED_LAMBDAS=$(git diff --name-only HEAD | grep "^$LAMBDA_DIR/" | awk -F/ '{print $2}' | sort -u)
+fi
 
 if [ -z "$CHANGED_LAMBDAS" ]; then
     echo "✅ No Lambda code changes detected. Skipping build & upload."
