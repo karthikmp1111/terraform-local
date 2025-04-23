@@ -2,11 +2,9 @@
 
 set -e
 
-# Get script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-# Config
 BUCKET="bg-kar-terraform-state"
 S3_PREFIX="lambda-packages"
 LAMBDA_FOLDER="lambda-functions"
@@ -14,11 +12,6 @@ HASH_STORE=".lambda_hashes"
 
 mkdir -p "$HASH_STORE"
 
-# Function to compute a hash of the Lambda source files
-# compute_source_hash() {
-#   local folder_path=$1
-#   find "$folder_path" -type f \( -name "*.py" -o -name "requirements.txt" \) -exec md5sum {} \; | sort | md5sum | awk '{print $1}'
-# }
 compute_source_hash() {
   local folder_path=$1
   find "$folder_path" -type f \( -name "*.py" -o -name "requirements.txt" -o -name "*.txt" -o -name "*.yaml" -o -name "*.yml" \) -exec md5sum {} \; | sort | md5sum | awk '{print $1}'
@@ -73,7 +66,6 @@ build_and_upload_lambda() {
   # Upload the package to S3
   aws s3 cp "package.zip" s3://$BUCKET/$S3_PREFIX/$lambda_name/package.zip
 
-  # Save the current hash for future comparison
   echo "$current_hash" > "$SCRIPT_DIR/$hash_file"
 
   cd "$SCRIPT_DIR"
