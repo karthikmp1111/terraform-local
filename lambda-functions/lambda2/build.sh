@@ -21,3 +21,4 @@ pip install -r requirements.txt -t .
 zip -r package.zip . -x "build.sh" "*.pyc" "__pycache__/*"
 
 echo "✅ Build completed for $LAMBDA_NAME"
+

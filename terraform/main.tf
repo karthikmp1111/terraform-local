@@ -62,7 +62,8 @@ resource "aws_iam_role" "lambda_role" {
 }
 ########Test File###########
 # resource "aws_s3_bucket_object" "test_file" {
-#   bucket = "bg-kar-terraform-state"
-#   key    = "karthik-file.txt"
-#   content = "This is a test file for Terraform configuration"
-# }
+resource "aws_s3_object" "test_file" {
+  bucket = "bg-kar-terraform-state"
+  key    = "karthik-file.txt"
+  content = "This is a test file for Terraform configuration"
+}
